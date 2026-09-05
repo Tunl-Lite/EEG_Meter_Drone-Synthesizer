@@ -39,6 +39,13 @@ class TestAPIEndpoints(unittest.TestCase):
         data = response.json()
         self.assertTrue(data.get("success", False))
 
+    def test_root_html_serves_with_no_cache(self):
+        """Verify root endpoint serves the dashboard HTML with anti-cache headers."""
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Muse2", response.text)
+        self.assertIn("no-cache", response.headers.get("cache-control", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

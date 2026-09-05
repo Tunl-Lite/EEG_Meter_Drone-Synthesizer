@@ -16,6 +16,11 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add backend directory to path if needed
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Configure LSL API for reliable concurrent local stream resolution
+lsl_cfg = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lsl_api.cfg")
+if os.path.exists(lsl_cfg) and "LSLAPICFG" not in os.environ:
+    os.environ["LSLAPICFG"] = lsl_cfg
+
 from receiver import LSLReceiver
 from processor import EEGProcessor, PPGProcessor
 
@@ -199,6 +204,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_cache_control_headers(request, call_next):
+    response = await call_next(request)
+    content_type = response.headers.get("content-type", "")
+    if "text/html" in content_type:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # --- API Endpoints ---
 

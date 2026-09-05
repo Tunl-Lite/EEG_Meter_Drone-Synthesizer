@@ -55,6 +55,7 @@ ehthumbs.db
 .vscode/tasks.json
 .vscode/launch.json
 .idea/
+.snapshots/
 *.swp
 *.swo
 *~
