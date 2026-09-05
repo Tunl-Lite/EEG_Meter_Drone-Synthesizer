@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muse2 LSL Gateway &amp; Real-Time Dashboard</title>
+    <!-- Google Fonts: VT323 & Share Tech Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-title">
+                    <h1 style="font-family: var(--font-header); font-size: 28px; color: var(--accent-amber); letter-spacing: 1px;">MUSE 2</h1>
+                    <span class="brand-subtitle" style="font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px;">LSL NEURO-GATEWAY</span>
+                </div>
+                <div class="ws-status" id="ws-status">
+                    <span class="status-dot"></span>
+                    <span class="status-label">WEBSOCKET DISCONNECTED</span>
+                </div>
+            </div>
+
+            <!-- BLE Connection Card -->
+            <div class="control-card glass">
+                <div class="card-header">
+                    <h3>EEG Interface</h3>
+                </div>
+                
+                <button id="btn-scan" class="btn btn-secondary btn-full">
+                    Scan for Devices
+                </button>
+
+                <div class="device-list-container" id="device-list-container">
+                    <p class="empty-list-msg">No devices found. Click Scan.</p>
+                </div>
+
+                <button id="btn-stop-stream" class="btn btn-danger btn-full" disabled style="margin-top: 10px;">
+                    Disconnect Stream
+                </button>
+            </div>
+
+            <!-- LSL Status Card -->
+            <div class="control-card glass">
+                <div class="card-header">
+                    <h3>Active LSL Streams</h3>
+                </div>
+                <ul class="lsl-streams-list">
+                    <li id="lsl-status-eeg">
+                        <span class="indicator-dot"></span>
+                        <div class="stream-info">
+                            <span class="stream-name">EEG (Brainwaves)</span>
+                            <span class="stream-meta">TP9, AF7, AF8, TP10, AUX @ 256Hz</span>
+                        </div>
+                    </li>
+                    <li id="lsl-status-ppg">
+                        <span class="indicator-dot"></span>
+                        <div class="stream-info">
+                            <span class="stream-name">PPG (Heart Pulse)</span>
+                            <span class="stream-meta">Ambient, IR, Red @ 64Hz</span>
+                        </div>
+                    </li>
+                    <li id="lsl-status-acc">
+                        <span class="indicator-dot"></span>
+                        <div class="stream-info">
+                            <span class="stream-name">ACC (Accelerometer)</span>
+                            <span class="stream-meta">3-Axis Forces @ 52Hz</span>
+                        </div>
+                    </li>
+                    <li id="lsl-status-gyro">
+                        <span class="indicator-dot"></span>
+                        <div class="stream-info">
+                            <span class="stream-name">GYRO (Gyroscope)</span>
+                            <span class="stream-meta">3-Axis Rotation @ 52Hz</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Viewport -->
+        <main class="dashboard-main">
+            <header class="dashboard-header">
+                <h2>Neuro-Telemetry</h2>
+                <div class="view-tabs">
+                    <button class="tab-btn active" id="tab-dashboard" data-view="telemetry-view">Telemetry Dashboard</button>
+                    <button class="tab-btn" id="tab-drone" data-view="synth-view">Drone Synthesizer</button>
+                </div>
+            </header>
+
+            <div id="telemetry-view" class="dashboard-grid">
+                <!-- EEG Visualizer (Large panel) -->
+                <section class="dashboard-card glass col-span-2 row-span-2">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <svg class="title-icon icon-eeg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                            <h3>Electroencephalography (EEG) Channels</h3>
+                        </div>
+                        <span class="rate-indicator" id="rate-eeg">0 Hz</span>
+                    </div>
+                    <div class="eeg-container">
+                        <!-- TP9 -->
+                        <div class="eeg-track">
+                            <div class="track-info">
+                                <span class="track-label">TP9</span>
+                                <span class="track-desc">Left Temporal</span>
+                                <span class="track-val" id="val-tp9">0.0 uV</span>
+                            </div>
+                            <canvas id="canvas-eeg-tp9"></canvas>
+                        </div>
+                        <!-- AF7 -->
+                        <div class="eeg-track">
+                            <div class="track-info">
+                                <span class="track-label">AF7</span>
+                                <span class="track-desc">Left Frontal</span>
+                                <span class="track-val" id="val-af7">0.0 uV</span>
+                            </div>
+                            <canvas id="canvas-eeg-af7"></canvas>
+                        </div>
+                        <!-- AF8 -->
+                        <div class="eeg-track">
+                            <div class="track-info">
+                                <span class="track-label">AF8</span>
+                                <span class="track-desc">Right Frontal</span>
+                                <span class="track-val" id="val-af8">0.0 uV</span>
+                            </div>
+                            <canvas id="canvas-eeg-af8"></canvas>
+                        </div>
+                        <!-- TP10 -->
+                        <div class="eeg-track">
+                            <div class="track-info">
+                                <span class="track-label">TP10</span>
+                                <span class="track-desc">Right Temporal</span>
+                                <span class="track-val" id="val-tp10">0.0 uV</span>
+                            </div>
+                            <canvas id="canvas-eeg-tp10"></canvas>
+                        </div>
+                        <!-- AUX -->
+                        <div class="eeg-track">
+                            <div class="track-info">
+                                <span class="track-label">AUX</span>
+                                <span class="track-desc">Right AUX</span>
+                                <span class="track-val" id="val-aux">0.0 uV</span>
+                            </div>
+                            <canvas id="canvas-eeg-aux"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PPG Visualizer -->
+                <section class="dashboard-card glass">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <svg class="title-icon icon-ppg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                            <h3>Photoplethysmography (PPG)</h3>
+                        </div>
+                        <span class="rate-indicator" id="rate-ppg">0 Hz</span>
+                    </div>
+                    <div class="ppg-legend">
+                        <span class="legend-item"><span class="legend-dot color-red"></span> Red</span>
+                        <span class="legend-item"><span class="legend-dot color-ir"></span> Infrared (IR)</span>
+                        <span class="legend-item"><span class="legend-dot color-ambient"></span> Ambient</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="canvas-ppg"></canvas>
+                    </div>
+                </section>
+
+                <!-- IMU Visualizers -->
+                <section class="dashboard-card glass">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <svg class="title-icon icon-imu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l-7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            </svg>
+                            <h3>Head Movement (IMU)</h3>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="rate-indicator" id="rate-acc">0 Hz</span>
+                            <span class="rate-indicator hidden" id="rate-gyro">0 Hz</span>
+                            <div class="imu-tabs">
+                                <button class="tab-btn active" data-tab="tab-acc">ACC</button>
+                                <button class="tab-btn" data-tab="tab-gyro">GYRO</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="imu-legend">
+                        <span class="legend-item"><span class="legend-dot color-x"></span> X-Axis</span>
+                        <span class="legend-item"><span class="legend-dot color-y"></span> Y-Axis</span>
+                        <span class="legend-item"><span class="legend-dot color-z"></span> Z-Axis</span>
+                    </div>
+                    
+                    <!-- ACC Chart -->
+                    <div class="chart-container imu-chart-panel" id="tab-acc-panel">
+                        <canvas id="canvas-acc"></canvas>
+                    </div>
+                    
+                    <!-- GYRO Chart -->
+                    <div class="chart-container imu-chart-panel hidden" id="tab-gyro-panel">
+                        <canvas id="canvas-gyro"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Drone Synthesizer Viewport (Hidden by default) -->
+            <div id="synth-view" class="synth-container hidden">
+                <div class="dashboard-grid">
+                    <!-- Engine Control Card -->
+                    <section class="dashboard-card glass col-span-2">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <svg class="title-icon icon-eeg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                                <h3>Engage Audio Drone Engine</h3>
+                            </div>
+                        </div>
+                        <div class="synth-engine-controls">
+                            <div class="control-row">
+                                <button id="btn-engage-audio" class="btn btn-danger btn-large">
+                                    ENGAGE DRONE ENGINE
+                                </button>
+                                <div class="master-gain-container">
+                                    <span class="control-label">MASTER VOLUME</span>
+                                    <input type="range" id="slider-master-gain" min="0" max="1" step="0.01" value="0.5">
+                                    <span id="val-master-gain">50%</span>
+                                </div>
+                            </div>
+                            <div class="calibration-row">
+                                <div class="calibration-info">
+                                    <span class="control-label">EEG CALIBRATION STATUS</span>
+                                    <div class="cal-status-display">
+                                        <span class="status-dot" id="cal-dot"></span>
+                                        <span id="cal-status-text">UNINITIALIZED (DEFAULT BASELINES)</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button id="btn-simulate-data" class="btn btn-secondary">
+                                        Simulate Telemetry
+                                    </button>
+                                    <button id="btn-calibrate" class="btn btn-secondary">
+                                        Calibrate Brainwaves (10s)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Tuning & Scale Selector Card -->
+                    <section class="dashboard-card glass">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <svg class="title-icon icon-eeg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"/>
+                                    <circle cx="6" cy="18" r="3"/>
+                                    <circle cx="18" cy="16" r="3"/>
+                                </svg>
+                                <h3>Drone Tuning &amp; Scales</h3>
+                            </div>
+                        </div>
+                        <div class="tuning-controls">
+                            <div class="control-group">
+                                <label for="select-scale" class="control-label">MUSICAL SCALE</label>
+                                <select id="select-scale" class="retro-select">
+                                    <option value="g-minor-pentatonic">G Minor Pentatonic (Mystic)</option>
+                                    <option value="c-major-pentatonic">C Major Pentatonic (Harmonious)</option>
+                                    <option value="d-phrygian-dominant">D Phrygian Dominant (Exotic)</option>
+                                    <option value="pygmy">C Pygmy Scale (Ethereal)</option>
+                                    <option value="bhairav">C Raga Bhairav (Zen)</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <span class="control-label">BASE ROOT FREQUENCY</span>
+                                <input type="range" id="slider-root-freq" min="40" max="120" step="1" value="65">
+                                <span id="val-root-freq" class="val-display">65.4 Hz (C2)</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Telemetry Meters Card -->
+                    <section class="dashboard-card glass">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h3>Brainwave Telemetry (Relative)</h3>
+                            </div>
+                        </div>
+                        <div class="meters-container">
+                            <div class="meter-track">
+                                <div class="meter-label">DELTA <span class="meter-desc">Sleep</span></div>
+                                <div class="meter-bar-outer"><div id="meter-delta" class="meter-bar-inner" style="width: 20%;"></div></div>
+                                <span id="val-meter-delta" class="meter-val">20.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">THETA <span class="meter-desc">Dream</span></div>
+                                <div class="meter-bar-outer"><div id="meter-theta" class="meter-bar-inner" style="width: 20%;"></div></div>
+                                <span id="val-meter-theta" class="meter-val">20.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">ALPHA <span class="meter-desc">Relax</span></div>
+                                <div class="meter-bar-outer"><div id="meter-alpha" class="meter-bar-inner" style="width: 20%;"></div></div>
+                                <span id="val-meter-alpha" class="meter-val">20.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">BETA <span class="meter-desc">Focus</span></div>
+                                <div class="meter-bar-outer"><div id="meter-beta" class="meter-bar-inner" style="width: 20%;"></div></div>
+                                <span id="val-meter-beta" class="meter-val">20.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">GAMMA <span class="meter-desc">Cognition</span></div>
+                                <div class="meter-bar-outer"><div id="meter-gamma" class="meter-bar-inner" style="width: 20%;"></div></div>
+                                <span id="val-meter-gamma" class="meter-val">20.0%</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Synth Voice Output Level Card -->
+                    <section class="dashboard-card glass">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h3>Drone Voice Output Levels</h3>
+                            </div>
+                        </div>
+                        <div class="meters-container">
+                            <div class="meter-track">
+                                <div class="meter-label">Voice 1 <span class="meter-desc">Root</span></div>
+                                <div class="meter-bar-outer"><div id="voice-bar-1" class="meter-bar-inner voice-bar" style="width: 0%;"></div></div>
+                                <span id="voice-val-1" class="meter-val">0.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">Voice 2 <span class="meter-desc">Fifth</span></div>
+                                <div class="meter-bar-outer"><div id="voice-bar-2" class="meter-bar-inner voice-bar" style="width: 0%;"></div></div>
+                                <span id="voice-val-2" class="meter-val">0.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">Voice 3 <span class="meter-desc">Octave</span></div>
+                                <div class="meter-bar-outer"><div id="voice-bar-3" class="meter-bar-inner voice-bar" style="width: 0%;"></div></div>
+                                <span id="voice-val-3" class="meter-val">0.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">Voice 4 <span class="meter-desc">Third</span></div>
+                                <div class="meter-bar-outer"><div id="voice-bar-4" class="meter-bar-inner voice-bar" style="width: 0%;"></div></div>
+                                <span id="voice-val-4" class="meter-val">0.0%</span>
+                            </div>
+                            <div class="meter-track">
+                                <div class="meter-label">Voice 5 <span class="meter-desc">Seventh/Ninth</span></div>
+                                <div class="meter-bar-outer"><div id="voice-bar-5" class="meter-bar-inner voice-bar" style="width: 0%;"></div></div>
+                                <span id="voice-val-5" class="meter-val">0.0%</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Modulation Routing Status -->
+                    <section class="dashboard-card glass">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h3>Telemetry Modulation Routing</h3>
+                            </div>
+                        </div>
+                        <ul class="modulation-list">
+                            <li>
+                                <span class="mod-source">DELTA (1-4Hz)</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Sub-bass ground volume</span>
+                            </li>
+                            <li>
+                                <span class="mod-source">THETA (4-8Hz)</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Swell amplitude LFO rate/depth</span>
+                            </li>
+                            <li>
+                                <span class="mod-source">ALPHA (8-13Hz)</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Voice LPF cutoff (brightness)</span>
+                            </li>
+                            <li>
+                                <span class="mod-source">BETA (13-30Hz)</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Oscillator detune drift (tension)</span>
+                            </li>
+                            <li>
+                                <span class="mod-source">IMU ACC/GYRO</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Voice stereo panning / Resonance</span>
+                            </li>
+                            <li>
+                                <span class="mod-source">PPG PULSE</span>
+                                <span class="mod-arrow">🡢</span>
+                                <span class="mod-dest">Chime pluck trigger (<span id="val-chime-bpm">0</span> BPM)</span>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- Audio Oscilloscope Card (Large panel) -->
+                    <section class="dashboard-card glass col-span-2">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <svg class="title-icon icon-ppg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                                </svg>
+                                <h3>Drone Waveform Oscilloscope</h3>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="canvas-oscilloscope"></canvas>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
