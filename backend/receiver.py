@@ -19,6 +19,7 @@ class LSLReceiver:
         self._threads: Dict[str, threading.Thread] = {}
         self._inlets: Dict[str, pylsl.StreamInlet] = {}
         self._active_stream_types: Dict[str, str] = {}
+        self._last_sample_time: Dict[str, float] = {}
         self._lock = threading.Lock()
         
         # Track supported stream types
@@ -41,32 +42,43 @@ class LSLReceiver:
                 return
             self._running = False
             self._stop_event.set()
+            inlets_to_close = list(self._inlets.values())
+            threads_to_join = list(self._threads.values())
+            self._inlets.clear()
+            self._threads.clear()
+            self._active_stream_types.clear()
+            self._last_sample_time.clear()
             
         logger.info("Stopping LSL Receiver...")
-        # Join discovery thread
+        # Join discovery thread outside lock
         if self._discovery_thread:
             self._discovery_thread.join(timeout=1.0)
             self._discovery_thread = None
             
-        # Stop all stream reading threads and close inlets
-        with self._lock:
-            for uid, inlet in self._inlets.items():
-                try:
-                    inlet.close_stream()
-                except Exception as e:
-                    logger.error(f"Error closing inlet {uid}: {e}")
-            self._inlets.clear()
-            self._threads.clear()
-            self._active_stream_types.clear()
+        # Close all inlets outside lock to prevent deadlocking with reading threads
+        for inlet in inlets_to_close:
+            try:
+                inlet.close_stream()
+            except Exception as e:
+                logger.error(f"Error closing inlet: {e}")
+
+        # Wait briefly for reader threads to exit cleanly
+        for t in threads_to_join:
+            try:
+                t.join(timeout=0.5)
+            except Exception:
+                pass
         
         logger.info("LSL Receiver stopped.")
 
     def get_status(self) -> Dict[str, bool]:
-        """Returns the status of connected streams without blocking lock contention."""
+        """Returns True only for streams actively receiving data within the last 2.5 seconds."""
+        now = time.time()
         with self._lock:
             status = {t: False for t in self.target_types}
-            for stype in self._active_stream_types.values():
-                if stype in status:
+            for uid, stype in self._active_stream_types.items():
+                last_time = self._last_sample_time.get(stype, 0.0)
+                if (now - last_time) < 2.5:
                     status[stype] = True
             return status
 
@@ -76,10 +88,21 @@ class LSLReceiver:
             with self._lock:
                 if not self._running:
                     break
+                now = time.time()
+                active_types = set(
+                    stype for uid, stype in self._active_stream_types.items()
+                    if (now - self._last_sample_time.get(stype, 0.0)) < 2.5
+                )
+                all_found = all(t in active_types for t in self.target_types)
+
+            if all_found:
+                # All target streams are actively receiving live data; idle wait
+                self._stop_event.wait(3.0)
+                continue
 
             try:
-                # Search for all available streams
-                streams = pylsl.resolve_streams(wait_time=0.5)
+                # Search for all available streams with sufficient wait time for all local outlets
+                streams = pylsl.resolve_streams(wait_time=1.0)
                 
                 # Check for each target stream type
                 for info in streams:
@@ -103,7 +126,7 @@ class LSLReceiver:
                 logger.error(f"Error in discovery loop: {e}")
 
             # Responsive wait interrupted immediately if stop_event is set
-            self._stop_event.wait(2.0)
+            self._stop_event.wait(1.5)
 
     def _read_stream_loop(self, stream_info: pylsl.StreamInfo, uid: str, stype: str):
         """Reads data from a specific LSL inlet in a loop."""
@@ -121,6 +144,8 @@ class LSLReceiver:
                     del self._threads[uid]
             return
 
+        last_data_time = time.time()
+
         # Read loop
         while not self._stop_event.is_set():
             with self._lock:
@@ -135,23 +160,36 @@ class LSLReceiver:
                 break
 
             if samples and len(samples) > 0:
+                last_data_time = time.time()
+                with self._lock:
+                    self._last_sample_time[stype] = last_data_time
                 # Forward the chunk of samples to the callback safely
                 try:
                     self.callback(stype, samples, timestamps)
                 except Exception as e:
                     logger.error(f"Error in data callback for stream {stype}: {e}")
+            else:
+                # Disconnect inlet if idle for > 4 seconds (headset powered down or out of range)
+                if (time.time() - last_data_time) > 4.0:
+                    logger.info(f"Stream {stype} (UID: {uid}) timed out with no incoming data. Disconnecting inlet...")
+                    break
 
         # Cleanup this stream
+        inlet_to_close = None
         with self._lock:
             if uid in self._inlets:
-                try:
-                    self._inlets[uid].close_stream()
-                except Exception:
-                    pass
-                del self._inlets[uid]
+                inlet_to_close = self._inlets.pop(uid)
             if uid in self._threads:
                 del self._threads[uid]
             if uid in self._active_stream_types:
                 del self._active_stream_types[uid]
+            if stype in self._last_sample_time:
+                del self._last_sample_time[stype]
+
+        if inlet_to_close:
+            try:
+                inlet_to_close.close_stream()
+            except Exception:
+                pass
         
         logger.info(f"Stopped reader thread for stream {stype} (UID: {uid})")

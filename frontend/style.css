@@ -30,7 +30,7 @@
     --border-amber-dim: #443000;
     
     --font-family: 'Share Tech Mono', monospace;
-    --font-header: 'VT323', monospace;
+    --font-header: 'Share Tech Mono', monospace;
     --sidebar-width: 340px;
     --radius-lg: 0px; /* Sharp corners for authentic console layout */
     --radius-md: 0px;
@@ -46,6 +46,9 @@
 
 body {
     font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     background-color: var(--bg-main);
     color: var(--text-primary);
     overflow-x: hidden;
@@ -106,8 +109,10 @@ body {
 
 .card-header h3 {
     font-family: var(--font-header);
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.75px;
+    text-transform: uppercase;
     color: var(--text-primary);
 }
 
@@ -327,6 +332,12 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 10px;
+    opacity: 0.55;
+    transition: opacity 0.25s ease;
+}
+
+.lsl-streams-list li.active {
+    opacity: 1;
 }
 
 .lsl-streams-list .indicator-dot {
@@ -334,25 +345,61 @@ body {
     height: 8px;
     border-radius: var(--radius-sm);
     background-color: transparent;
-    border: 1px solid var(--border-amber-dim);
-    margin-top: 4px;
+    border: 1px solid var(--text-muted);
+    margin-top: 5px;
+    flex-shrink: 0;
+    transition: all 0.25s ease;
 }
 
 .lsl-streams-list li.active .indicator-dot {
     background-color: var(--accent-amber);
     border-color: var(--accent-amber);
+    box-shadow: 0 0 8px var(--accent-amber);
 }
 
 .lsl-streams-list .stream-info {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex-grow: 1;
+}
+
+.stream-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
 }
 
 .lsl-streams-list .stream-name {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
+}
+
+.stream-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.stream-badge.badge-offline {
+    color: var(--text-muted);
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stream-badge.badge-live {
+    color: #000000;
+    background-color: var(--accent-amber);
+    border: 1px solid var(--accent-amber);
+    box-shadow: 0 0 6px rgba(255, 179, 0, 0.35);
 }
 
 .lsl-streams-list .stream-meta {
@@ -381,8 +428,10 @@ body {
 
 .dashboard-header h2 {
     font-family: var(--font-header);
-    font-size: 32px;
+    font-size: 20px;
     font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     color: var(--accent-amber);
 }
 
@@ -476,8 +525,10 @@ body {
 
 .dashboard-card .card-header h3 {
     font-family: var(--font-header);
-    font-size: 22px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.75px;
+    text-transform: uppercase;
     color: var(--text-primary);
 }
 

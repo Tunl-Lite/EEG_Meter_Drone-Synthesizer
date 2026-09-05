@@ -16,7 +16,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="brand-title">
-                    <h1 style="font-family: var(--font-header); font-size: 28px; color: var(--accent-amber); letter-spacing: 1px;">MUSE 2</h1>
+                    <h1 style="font-family: var(--font-header); font-size: 20px; font-weight: 700; color: var(--accent-amber); letter-spacing: 1.5px;">MUSE 2</h1>
                     <span class="brand-subtitle" style="font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px;">LSL NEURO-GATEWAY</span>
                 </div>
                 <div class="ws-status" id="ws-status">
@@ -47,35 +47,48 @@
             <!-- LSL Status Card -->
             <div class="control-card glass">
                 <div class="card-header">
-                    <h3>Active LSL Streams</h3>
+                    <h3>LSL Streams</h3>
+                    <span id="lsl-active-count" class="badge">0 / 4 Active</span>
                 </div>
                 <ul class="lsl-streams-list">
                     <li id="lsl-status-eeg">
                         <span class="indicator-dot"></span>
                         <div class="stream-info">
-                            <span class="stream-name">EEG (Brainwaves)</span>
-                            <span class="stream-meta">TP9, AF7, AF8, TP10, AUX @ 256Hz</span>
+                            <div class="stream-title-row">
+                                <span class="stream-name">EEG (Brainwaves)</span>
+                                <span id="lsl-badge-eeg" class="stream-badge badge-offline">Offline</span>
+                            </div>
+                            <span class="stream-meta">TP9, AF7, AF8, TP10, AUX (256 Hz)</span>
                         </div>
                     </li>
                     <li id="lsl-status-ppg">
                         <span class="indicator-dot"></span>
                         <div class="stream-info">
-                            <span class="stream-name">PPG (Heart Pulse)</span>
-                            <span class="stream-meta">Ambient, IR, Red @ 64Hz</span>
+                            <div class="stream-title-row">
+                                <span class="stream-name">PPG (Heart Pulse)</span>
+                                <span id="lsl-badge-ppg" class="stream-badge badge-offline">Offline</span>
+                            </div>
+                            <span class="stream-meta">Ambient, IR, Red (64 Hz)</span>
                         </div>
                     </li>
                     <li id="lsl-status-acc">
                         <span class="indicator-dot"></span>
                         <div class="stream-info">
-                            <span class="stream-name">ACC (Accelerometer)</span>
-                            <span class="stream-meta">3-Axis Forces @ 52Hz</span>
+                            <div class="stream-title-row">
+                                <span class="stream-name">ACC (Accelerometer)</span>
+                                <span id="lsl-badge-acc" class="stream-badge badge-offline">Offline</span>
+                            </div>
+                            <span class="stream-meta">3-Axis Forces (52 Hz)</span>
                         </div>
                     </li>
                     <li id="lsl-status-gyro">
                         <span class="indicator-dot"></span>
                         <div class="stream-info">
-                            <span class="stream-name">GYRO (Gyroscope)</span>
-                            <span class="stream-meta">3-Axis Rotation @ 52Hz</span>
+                            <div class="stream-title-row">
+                                <span class="stream-name">GYRO (Gyroscope)</span>
+                                <span id="lsl-badge-gyro" class="stream-badge badge-offline">Offline</span>
+                            </div>
+                            <span class="stream-meta">3-Axis Rotation (52 Hz)</span>
                         </div>
                     </li>
                 </ul>
@@ -165,9 +178,9 @@
                         <span class="rate-indicator" id="rate-ppg">0 Hz</span>
                     </div>
                     <div class="ppg-legend">
-                        <span class="legend-item"><span class="legend-dot color-red"></span> Red</span>
-                        <span class="legend-item"><span class="legend-dot color-ir"></span> Infrared (IR)</span>
                         <span class="legend-item"><span class="legend-dot color-ambient"></span> Ambient</span>
+                        <span class="legend-item"><span class="legend-dot color-ir"></span> Infrared (IR)</span>
+                        <span class="legend-item"><span class="legend-dot color-red"></span> Red</span>
                     </div>
                     <div class="chart-container">
                         <canvas id="canvas-ppg"></canvas>
@@ -198,6 +211,7 @@
                         <span class="legend-item"><span class="legend-dot color-x"></span> X-Axis</span>
                         <span class="legend-item"><span class="legend-dot color-y"></span> Y-Axis</span>
                         <span class="legend-item"><span class="legend-dot color-z"></span> Z-Axis</span>
+                        <span class="legend-item" id="imu-unit-tag" style="margin-left: auto; font-family: monospace; font-size: 0.72rem; color: var(--text-muted);">Linear Force / Gravity (g)</span>
                     </div>
                     
                     <!-- ACC Chart -->

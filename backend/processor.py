@@ -74,12 +74,21 @@ class EEGProcessor:
         return calculated_bands
 
     def _calculate_bands(self) -> List[float]:
-        """Calculates relative band powers averaged across all 4 channels."""
+        """Calculates relative band powers averaged across all valid EEG channels."""
         channel_powers = {band: [] for band in self.bands}
         
         # Calculate FFT for each channel
         for c in range(self.num_channels):
             channel_data = self.buffer[c, :]
+            
+            # Clean non-finite samples (NaN/inf) if any
+            if not np.all(np.isfinite(channel_data)):
+                channel_data = np.nan_to_num(channel_data, nan=0.0, posinf=0.0, neginf=0.0)
+                
+            # If channel has no variation (flatline or disconnected), skip it
+            ch_std = float(np.std(channel_data))
+            if ch_std < 1e-5:
+                continue
             
             # Detrend (remove DC offset)
             channel_data = channel_data - np.mean(channel_data)
@@ -99,17 +108,18 @@ class EEGProcessor:
                     band_power = 0.0
                 channel_powers[band_name].append(band_power)
                 
-        # Average across channels
+        # Average across valid channels
         avg_powers = {}
         total_power = 0.0
         for band_name in self.bands:
-            avg_power = float(np.mean(channel_powers[band_name]))
+            powers = channel_powers[band_name]
+            avg_power = float(np.mean(powers)) if powers else 0.0
             avg_powers[band_name] = avg_power
             total_power += avg_power
             
         # Compute relative power
         relative_powers = []
-        if total_power > 0:
+        if total_power > 0 and np.isfinite(total_power):
             for band_name in ['delta', 'theta', 'alpha', 'beta', 'gamma']:
                 relative_powers.append(float(avg_powers[band_name] / total_power))
         else:

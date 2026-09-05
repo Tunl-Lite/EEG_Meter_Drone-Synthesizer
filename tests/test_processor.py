@@ -66,6 +66,26 @@ class TestEEGProcessor(unittest.TestCase):
         self.assertTrue(len(res) > 0)
         self.assertLess(self.processor.samples_since_last_calc, self.processor.step_size)
 
+    def test_nan_and_flatline_channel_resilience(self):
+        """Verify that NaNs and flatlined disconnected channels do not corrupt band powers."""
+        fs = 256.0
+        samples = []
+        for i in range(600):
+            t = i / fs
+            alpha_signal = 30.0 * np.sin(2 * np.pi * 10.0 * t)
+            # Channel 0: NaN glitch, Channel 1: valid alpha, Channel 2: valid alpha, Channel 3: flatline 0.0
+            tp9_val = np.nan if i % 50 == 0 else 10.0
+            samples.append([tp9_val, alpha_signal, alpha_signal, 0.0, 0.0])
+
+        res = self.processor.add_samples(samples)
+        self.assertTrue(len(res) > 0)
+        for bands in res:
+            self.assertEqual(len(bands), 5)
+            self.assertTrue(all(np.isfinite(b) for b in bands), "All band values must be finite")
+            self.assertAlmostEqual(sum(bands), 1.0, places=4)
+            # Alpha (index 2) should still dominate from valid channels 1 & 2
+            self.assertGreater(bands[2], 0.35)
+
 
 class TestPPGProcessor(unittest.TestCase):
     def setUp(self):

@@ -8,7 +8,7 @@ const AVG_WINDOW = 5; // balances detail and smoothness
 // --- Constants & Color Configurations (High-Contrast Theme) ---
 const COLORS = {
     eeg: ['#ffb000', '#00e5ff', '#00e676', '#ff4081', '#b388ff'], // TP9, AF7, AF8, TP10, AUX
-    ppg: ['#ff3344', '#ffaa00', '#00d4ff'], // Red, IR, Ambient
+    ppg: ['#00d4ff', '#ffaa00', '#ff3344'], // Ambient (Cyan), IR (Amber), Red (Crimson)
     imu: ['#ff3344', '#00e676', '#00d4ff']  // X, Y, Z
 };
 
@@ -298,8 +298,8 @@ function handleStreamData(payload) {
     const samples = payload.samples;   // Array of arrays
     const count = samples ? samples.length : 0;
     
-    // Calculate and display dynamic sampling rate
-    if (count > 0) {
+    // Calculate and display dynamic sampling rate for recognized raw streams
+    if (count > 0 && state.rates[stream]) {
         updateSampleRate(stream, count);
     }
     
@@ -361,6 +361,7 @@ function handleStreamData(payload) {
 // --- Sample Rate Calculation ---
 function updateSampleRate(stream, sampleCount) {
     const rateData = state.rates[stream];
+    if (!rateData) return;
     rateData.count += sampleCount;
     
     const now = Date.now();
@@ -376,6 +377,12 @@ function updateSampleRate(stream, sampleCount) {
         const el = document.getElementById(elId);
         if (el) {
             el.textContent = `${rateData.rate} Hz`;
+        }
+
+        // Update badge in LSL Stream status card
+        const badgeEl = document.getElementById(`lsl-badge-${stream.toLowerCase()}`);
+        if (badgeEl && badgeEl.classList.contains('badge-live')) {
+            badgeEl.textContent = `LIVE • ${rateData.rate} Hz`;
         }
     }
 }
@@ -470,21 +477,55 @@ function toggleStreamUiState(isActive, device, activeStreams) {
 
 function updateLslStreamIndicators(activeStreams) {
     const targetTypes = ['eeg', 'ppg', 'acc', 'gyro'];
+    let activeCount = 0;
+
     targetTypes.forEach(type => {
         const el = document.getElementById(`lsl-status-${type}`);
+        const badgeEl = document.getElementById(`lsl-badge-${type}`);
+        const uppercaseType = type.toUpperCase();
+        const isActive = Boolean(activeStreams && activeStreams[uppercaseType]);
+
         if (el) {
-            const uppercaseType = type.toUpperCase();
-            const isActive = activeStreams && activeStreams[uppercaseType];
             if (isActive) {
+                activeCount++;
                 el.classList.add('active');
+                if (badgeEl) {
+                    const rateData = state.rates[uppercaseType];
+                    const rateText = rateData && rateData.rate > 0 ? `LIVE • ${rateData.rate} Hz` : 'LIVE';
+                    badgeEl.textContent = rateText;
+                    badgeEl.className = 'stream-badge badge-live';
+                }
             } else {
                 el.classList.remove('active');
+                if (badgeEl) {
+                    badgeEl.textContent = 'Offline';
+                    badgeEl.className = 'stream-badge badge-offline';
+                }
                 // Reset frequency display if not active
                 const rateEl = document.getElementById(`rate-${type}`);
                 if (rateEl) rateEl.textContent = '0 Hz';
             }
         }
     });
+
+    const activeCountBadge = document.getElementById('lsl-active-count');
+    if (activeCountBadge) {
+        activeCountBadge.textContent = `${activeCount} / 4 Active`;
+        if (activeCount > 0) {
+            activeCountBadge.classList.add('active');
+        } else {
+            activeCountBadge.classList.remove('active');
+        }
+    }
+
+    // Reset voltage readouts when EEG stream is inactive
+    const isEegActive = Boolean(activeStreams && activeStreams['EEG']);
+    if (!isEegActive) {
+        ['tp9', 'af7', 'af8', 'tp10', 'aux'].forEach(ch => {
+            const valEl = document.getElementById(`val-${ch}`);
+            if (valEl) valEl.textContent = '0.0 uV';
+        });
+    }
 }
 
 // --- UI Event Listeners Setup ---
@@ -559,17 +600,20 @@ function setupEventListeners() {
             const targetTab = tab.dataset.tab;
             const rAcc = document.getElementById('rate-acc');
             const rGyro = document.getElementById('rate-gyro');
+            const unitTag = document.getElementById('imu-unit-tag');
             
             if (targetTab === 'tab-acc') {
                 document.getElementById('tab-acc-panel').classList.remove('hidden');
                 document.getElementById('tab-gyro-panel').classList.add('hidden');
                 if (rAcc) rAcc.classList.remove('hidden');
                 if (rGyro) rGyro.classList.add('hidden');
+                if (unitTag) unitTag.textContent = 'Linear Force / Gravity (g)';
             } else {
                 document.getElementById('tab-acc-panel').classList.add('hidden');
                 document.getElementById('tab-gyro-panel').classList.remove('hidden');
                 if (rAcc) rAcc.classList.add('hidden');
                 if (rGyro) rGyro.classList.remove('hidden');
+                if (unitTag) unitTag.textContent = 'Angular Velocity (°/s)';
             }
             
             // Resize active canvases to ensure grid fitting

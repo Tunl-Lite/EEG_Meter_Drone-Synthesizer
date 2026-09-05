@@ -237,6 +237,7 @@ def get_status() -> Dict[str, Any]:
             "address": stream_device_address
         } if is_stream_running else None,
         "active_lsl_streams": resolved_streams,
+        "active_websockets": len(active_websockets),
         "last_stream_error": stream_error if not is_stream_running else None
     }
 
